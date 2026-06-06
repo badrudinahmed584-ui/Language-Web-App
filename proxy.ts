@@ -1,23 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/onboarding', '/pricing', '/auth']
 const PROTECTED_PATHS = ['/learn', '/community', '/messages', '/compete', '/analytics', '/profile', '/admin']
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Skip auth for fully public paths
-  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith('/auth'))
-  const isProtected = PROTECTED_PATHS.some(p => pathname.startsWith(p))
-
-  // If not protected, just continue
-  if (!isProtected) {
-    return NextResponse.next({ request })
-  }
-
   let supabaseResponse = NextResponse.next({ request })
 
+  // Always run session refresh so auth cookies stay valid
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -37,9 +28,19 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
+  const isProtected = PROTECTED_PATHS.some(p => pathname.startsWith(p))
+
+  // Redirect unauthenticated users away from protected pages
+  if (!user && isProtected) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect logged-in users away from login/signup
+  if (user && (pathname === '/login' || pathname === '/signup')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/learn'
     return NextResponse.redirect(url)
   }
 
