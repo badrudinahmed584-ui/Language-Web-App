@@ -10,6 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
+  // Non-blocking profile fetch
   const { data: profile } = await supabase
     .from("profiles")
     .select("*")
@@ -22,7 +23,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Sidebar />
         <div className="lg:ml-64">
           <Navbar />
-          <main className="p-4 lg:p-8 pb-24 lg:pb-8">{children}</main>
+          <main className="p-4 lg:p-6 pb-24 lg:pb-6">
+            {children}
+          </main>
         </div>
         <MobileNav />
       </div>
